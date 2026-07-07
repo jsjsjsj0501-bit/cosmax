@@ -29,6 +29,7 @@ STATUS_COLOR = {
     "discontinued": ("#a23b33", "#f5ded9"),
 }
 CATEGORY_EMOJI = {
+    "전체": "🗂️",
     "유화제": "🧴", "점증제": "🍯", "보습제": "💧", "방부제": "🛡️", "계면활성제": "🧼",
     "오일/에몰리언트": "🌿", "자외선차단제": "☀️", "산화방지제": "🍃", "실리콘": "⚙️", "pH조절제": "⚗️",
 }
@@ -165,8 +166,32 @@ st.markdown(f"""
     div[data-testid="stSidebarUserContent"] .stButton button {{
         width: 100%;
         text-align: left;
-        border: none;
+        border: 1px solid transparent;
+        border-radius: 10px;
         background: transparent;
+        color: #3b4a3f;
+        font-weight: 500;
+        padding: 8px 12px;
+        margin-bottom: 3px;
+        box-shadow: none;
+        transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+    }}
+    div[data-testid="stSidebarUserContent"] .stButton button:hover {{
+        background: {ACCENT_SOFT};
+        border-color: {BORDER};
+        transform: translateX(2px);
+    }}
+    div[data-testid="stSidebarUserContent"] .stButton button[kind="primary"] {{
+        background: {ACCENT};
+        border-color: {ACCENT};
+        color: #ffffff;
+        font-weight: 700;
+        box-shadow: 0 2px 6px rgba(44, 110, 92, 0.28);
+    }}
+    div[data-testid="stSidebarUserContent"] .stButton button[kind="primary"]:hover {{
+        background: {ACCENT_STRONG};
+        border-color: {ACCENT_STRONG};
+        transform: translateX(2px);
     }}
     .legend-item {{ font-size: 0.85rem; color: #4b6058; margin-bottom: 4px; }}
     .dot {{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }}
@@ -271,17 +296,13 @@ st.markdown(f"""
 # --------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("##### 기능 카테고리")
-    radio_key = f"category_radio_{st.session_state.category}"
-    selected_cat = st.radio(
-        "기능 카테고리",
-        CATEGORIES,
-        index=CATEGORIES.index(st.session_state.category),
-        key=radio_key,
-        label_visibility="collapsed",
-    )
-    if selected_cat != st.session_state.category:
-        st.session_state.category = selected_cat
-        st.session_state.selected_id = None
+    for cat in CATEGORIES:
+        is_active = st.session_state.category == cat
+        icon = CATEGORY_EMOJI.get(cat, "🗂️")
+        if st.button(f"{icon}  {cat}", key=f"cat_{cat}", use_container_width=True,
+                     type="primary" if is_active else "secondary"):
+            st.session_state.category = cat
+            st.session_state.selected_id = None
 
     st.markdown("---")
     st.markdown("##### 공급 상태")
