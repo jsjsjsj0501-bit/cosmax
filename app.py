@@ -14,7 +14,6 @@ st.set_page_config(
     page_title="원료 대체재 추천기",
     page_icon="🧪",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 BY_ID = {item["id"]: item for item in DB}
@@ -170,7 +169,13 @@ st.markdown(f"""
         color: {MUTED}; font-weight: 700; font-size: 0.74rem;
         text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 3px;
     }}
-    div[data-testid="stSidebarUserContent"] .stButton button {{
+    .st-key-nav_panel {{
+        background: #ffffff;
+        border: 1px solid {BORDER};
+        border-radius: 14px;
+        padding: 16px 14px;
+    }}
+    .st-key-nav_panel .stButton button {{
         width: 100%;
         text-align: left;
         border: 1px solid transparent;
@@ -183,19 +188,19 @@ st.markdown(f"""
         box-shadow: none;
         transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
     }}
-    div[data-testid="stSidebarUserContent"] .stButton button:hover {{
+    .st-key-nav_panel .stButton button:hover {{
         background: {ACCENT_SOFT};
         border-color: {BORDER};
         transform: translateX(2px);
     }}
-    div[data-testid="stSidebarUserContent"] .stButton button[kind="primary"] {{
+    .st-key-nav_panel .stButton button[kind="primary"] {{
         background: {ACCENT};
         border-color: {ACCENT};
         color: #ffffff;
         font-weight: 700;
         box-shadow: 0 2px 6px rgba(44, 110, 92, 0.28);
     }}
-    div[data-testid="stSidebarUserContent"] .stButton button[kind="primary"]:hover {{
+    .st-key-nav_panel .stButton button[kind="primary"]:hover {{
         background: {ACCENT_STRONG};
         border-color: {ACCENT_STRONG};
         transform: translateX(2px);
@@ -322,159 +327,159 @@ st.markdown(f"""
 
 
 # --------------------------------------------------------------------------
-# 사이드바 (기능 카테고리 / 공급 상태 범례)
+# 본문 레이아웃: 제목 아래, 왼쪽에 카테고리 내비게이션 + 오른쪽에 본문
 # --------------------------------------------------------------------------
-with st.sidebar:
-    st.markdown("##### 기능 카테고리")
-    for cat in CATEGORIES:
-        is_active = st.session_state.category == cat
-        icon = CATEGORY_EMOJI.get(cat, "🗂️")
-        if st.button(f"{icon}  {cat}", key=f"cat_{cat}", use_container_width=True,
-                     type="primary" if is_active else "secondary"):
-            st.session_state.category = cat
-            st.session_state.selected_id = None
+nav_col, main_col = st.columns([1, 3], gap="large")
+
+with nav_col:
+    with st.container(key="nav_panel"):
+        st.markdown("##### 기능 카테고리")
+        for cat in CATEGORIES:
+            is_active = st.session_state.category == cat
+            icon = CATEGORY_EMOJI.get(cat, "🗂️")
+            if st.button(f"{icon}  {cat}", key=f"cat_{cat}", use_container_width=True,
+                         type="primary" if is_active else "secondary"):
+                st.session_state.category = cat
+                st.session_state.selected_id = None
+
+        st.markdown("---")
+        st.markdown("##### 공급 상태")
+        for status, label in STATUS_LABEL.items():
+            color, _ = STATUS_COLOR[status]
+            st.markdown(
+                f'<div class="legend-item"><span class="dot" style="background:{color}"></span>{label}</div>',
+                unsafe_allow_html=True,
+            )
+
+with main_col:
+    # ----------------------------------------------------------------------
+    # 검색 영역
+    # ----------------------------------------------------------------------
+    search_col, btn_col1, btn_col2 = st.columns([5, 1, 1])
+    with search_col:
+        query_input = st.text_input(
+            "검색",
+            key="search_input",
+            placeholder="원료명 · INCI명 · CAS No 검색 (예: Ceteareth-20)",
+            label_visibility="collapsed",
+        )
+    with btn_col1:
+        if st.button("검색", use_container_width=True, type="primary"):
+            run_search(query_input.strip())
+    with btn_col2:
+        if st.button("초기화", use_container_width=True):
+            reset_search()
+
+    st.caption("단종/품절 예시:")
+    chip_cols = st.columns(len(QUICK_QUERIES))
+    for col, q in zip(chip_cols, QUICK_QUERIES):
+        with col:
+            if st.button(q, key=f"chip_{q}", use_container_width=True):
+                run_search(q)
+
+    # ----------------------------------------------------------------------
+    # 검색 기록
+    # ----------------------------------------------------------------------
+    with st.expander("🕘 검색 기록", expanded=bool(st.session_state.history)):
+        if not st.session_state.history:
+            st.caption("아직 검색 기록이 없습니다.")
+        else:
+            for idx, term in enumerate(st.session_state.history):
+                hc1, hc2 = st.columns([8, 1])
+                with hc1:
+                    if st.button(term, key=f"hist_{idx}", use_container_width=True):
+                        run_search(term)
+                with hc2:
+                    if st.button("✕", key=f"histdel_{idx}"):
+                        st.session_state.history.pop(idx)
+                        st.rerun()
 
     st.markdown("---")
-    st.markdown("##### 공급 상태")
-    for status, label in STATUS_LABEL.items():
-        color, _ = STATUS_COLOR[status]
-        st.markdown(
-            f'<div class="legend-item"><span class="dot" style="background:{color}"></span>{label}</div>',
-            unsafe_allow_html=True,
-        )
 
+    # ----------------------------------------------------------------------
+    # 결과 목록
+    # ----------------------------------------------------------------------
+    filtered = get_filtered()
+    hint = "원료를 클릭하면 대체재 정보가 바로 아래에 표시됩니다."
 
-# --------------------------------------------------------------------------
-# 검색 영역
-# --------------------------------------------------------------------------
-search_col, btn_col1, btn_col2 = st.columns([5, 1, 1])
-with search_col:
-    query_input = st.text_input(
-        "검색",
-        key="search_input",
-        placeholder="원료명 · INCI명 · CAS No 검색 (예: Ceteareth-20)",
-        label_visibility="collapsed",
-    )
-with btn_col1:
-    if st.button("검색", use_container_width=True, type="primary"):
-        run_search(query_input.strip())
-with btn_col2:
-    if st.button("초기화", use_container_width=True):
-        reset_search()
-
-st.caption("단종/품절 예시:")
-chip_cols = st.columns(len(QUICK_QUERIES))
-for col, q in zip(chip_cols, QUICK_QUERIES):
-    with col:
-        if st.button(q, key=f"chip_{q}", use_container_width=True):
-            run_search(q)
-
-# --------------------------------------------------------------------------
-# 검색 기록
-# --------------------------------------------------------------------------
-with st.expander("🕘 검색 기록", expanded=bool(st.session_state.history)):
-    if not st.session_state.history:
-        st.caption("아직 검색 기록이 없습니다.")
+    if not st.session_state.query and st.session_state.category == "전체":
+        st.caption(f"전체 원료 목록 ({len(filtered)}건) — {hint}")
+    elif not filtered:
+        st.warning("검색 결과가 없습니다. 원료명, INCI명 또는 CAS No.를 확인해주세요.")
     else:
-        for idx, term in enumerate(st.session_state.history):
-            hc1, hc2 = st.columns([8, 1])
-            with hc1:
-                if st.button(term, key=f"hist_{idx}", use_container_width=True):
-                    run_search(term)
-            with hc2:
-                if st.button("✕", key=f"histdel_{idx}"):
-                    st.session_state.history.pop(idx)
+        st.caption(f"검색 결과 {len(filtered)}건 — {hint}")
+
+    def build_sub_entry(sub, base_item):
+        target = BY_ID.get(sub["id"])
+        if not target:
+            return
+        match_class = "same" if sub["match"] == "same" else ""
+        match_label = "동일 기능" if sub["match"] == "same" else "유사 기능"
+        st.markdown(f"""
+        <div class="sub-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div>
+              <span class="name-text">{target['name']}</span>
+              <span class="match-badge {match_class}">{match_label}</span>
+              {price_diff_html(base_item, target)}
+              <div class="codes-text" style="margin-top:4px;">INCI {target['inci']} · CAS {target['cas']} · {format_price(target)}</div>
+            </div>
+            <div>{pill_html(target['status'])}</div>
+          </div>
+          <div class="sub-diff-box"><span class="label">차이점</span>{sub['diff']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    def build_detail_panel(item):
+        subs = item.get("subs")
+        if not subs:
+            subs = [
+                {"id": o["id"], "match": "similar", "diff": "상세 비교 데이터 없음 · 원료사 스펙시트 확인 필요"}
+                for o in DB if o["id"] != item["id"] and o["category"] == item["category"]
+            ][:3]
+
+        st.markdown(f"""
+        <div class="detail-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="color:{ACCENT};font-size:0.8rem;font-weight:700;text-transform:uppercase;">{item['category']}</div>
+              <h3 style="margin:2px 0 8px 0;font-size:1.3rem;font-weight:800;">{item['name']}</h3>
+            </div>
+            <div>{pill_html(item['status'])}</div>
+          </div>
+          <div style="display:flex;gap:28px;flex-wrap:wrap;border-top:1px solid {BORDER};border-bottom:1px solid {BORDER};padding:12px 0;margin:10px 0;">
+            <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">INCI명</div><div style="font-family:monospace;">{item['inci']}</div></div>
+            <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">CAS No.</div><div style="font-family:monospace;">{item['cas']}</div></div>
+            <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">참고 단가</div><div style="font-family:monospace;">{format_price(item)}</div></div>
+          </div>
+          <p style="color:{MUTED};font-size:0.95rem;line-height:1.6;margin:0;">{item['desc']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("**🔁 추천 대체 원료**")
+        for s in subs:
+            build_sub_entry(s, item)
+
+    for item in filtered:
+        is_selected = st.session_state.selected_id == item["id"]
+        row_class = "selected" if is_selected else ""
+
+        row_container = st.container()
+        with row_container:
+            c_icon, c_main, c_meta, c_pill = st.columns([0.6, 3.4, 2.2, 1.4])
+            with c_icon:
+                st.markdown(f"<div style='font-size:1.4rem;padding-top:4px;'>{CATEGORY_EMOJI.get(item['category'], '🧪')}</div>", unsafe_allow_html=True)
+            with c_main:
+                if st.button(f"{item['name']}", key=f"row_{item['id']}", use_container_width=True):
+                    st.session_state.selected_id = None if is_selected else item["id"]
                     st.rerun()
+                st.markdown(f"<div class='codes-text'>CAS {item['cas']}</div>", unsafe_allow_html=True)
+            with c_meta:
+                st.markdown(f"<div class='cat-price-text' style='padding-top:10px;'>{item['category']} · {format_price(item)}</div>", unsafe_allow_html=True)
+            with c_pill:
+                st.markdown(f"<div style='padding-top:8px;'>{pill_html(item['status'])}</div>", unsafe_allow_html=True)
 
-st.markdown("---")
+        if is_selected:
+            build_detail_panel(item)
 
-# --------------------------------------------------------------------------
-# 결과 목록
-# --------------------------------------------------------------------------
-filtered = get_filtered()
-hint = "원료를 클릭하면 대체재 정보가 바로 아래에 표시됩니다."
-
-if not st.session_state.query and st.session_state.category == "전체":
-    st.caption(f"전체 원료 목록 ({len(filtered)}건) — {hint}")
-elif not filtered:
-    st.warning("검색 결과가 없습니다. 원료명, INCI명 또는 CAS No.를 확인해주세요.")
-else:
-    st.caption(f"검색 결과 {len(filtered)}건 — {hint}")
-
-
-def build_sub_entry(sub, base_item):
-    target = BY_ID.get(sub["id"])
-    if not target:
-        return
-    match_class = "same" if sub["match"] == "same" else ""
-    match_label = "동일 기능" if sub["match"] == "same" else "유사 기능"
-    st.markdown(f"""
-    <div class="sub-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
-        <div>
-          <span class="name-text">{target['name']}</span>
-          <span class="match-badge {match_class}">{match_label}</span>
-          {price_diff_html(base_item, target)}
-          <div class="codes-text" style="margin-top:4px;">INCI {target['inci']} · CAS {target['cas']} · {format_price(target)}</div>
-        </div>
-        <div>{pill_html(target['status'])}</div>
-      </div>
-      <div class="sub-diff-box"><span class="label">차이점</span>{sub['diff']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def build_detail_panel(item):
-    subs = item.get("subs")
-    if not subs:
-        subs = [
-            {"id": o["id"], "match": "similar", "diff": "상세 비교 데이터 없음 · 원료사 스펙시트 확인 필요"}
-            for o in DB if o["id"] != item["id"] and o["category"] == item["category"]
-        ][:3]
-
-    st.markdown(f"""
-    <div class="detail-card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
-        <div>
-          <div style="color:{ACCENT};font-size:0.8rem;font-weight:700;text-transform:uppercase;">{item['category']}</div>
-          <h3 style="margin:2px 0 8px 0;font-size:1.3rem;font-weight:800;">{item['name']}</h3>
-        </div>
-        <div>{pill_html(item['status'])}</div>
-      </div>
-      <div style="display:flex;gap:28px;flex-wrap:wrap;border-top:1px solid {BORDER};border-bottom:1px solid {BORDER};padding:12px 0;margin:10px 0;">
-        <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">INCI명</div><div style="font-family:monospace;">{item['inci']}</div></div>
-        <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">CAS No.</div><div style="font-family:monospace;">{item['cas']}</div></div>
-        <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">참고 단가</div><div style="font-family:monospace;">{format_price(item)}</div></div>
-      </div>
-      <p style="color:{MUTED};font-size:0.95rem;line-height:1.6;margin:0;">{item['desc']}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("**🔁 추천 대체 원료**")
-    for s in subs:
-        build_sub_entry(s, item)
-
-
-for item in filtered:
-    is_selected = st.session_state.selected_id == item["id"]
-    row_class = "selected" if is_selected else ""
-
-    row_container = st.container()
-    with row_container:
-        c_icon, c_main, c_meta, c_pill = st.columns([0.6, 3.4, 2.2, 1.4])
-        with c_icon:
-            st.markdown(f"<div style='font-size:1.4rem;padding-top:4px;'>{CATEGORY_EMOJI.get(item['category'], '🧪')}</div>", unsafe_allow_html=True)
-        with c_main:
-            if st.button(f"{item['name']}", key=f"row_{item['id']}", use_container_width=True):
-                st.session_state.selected_id = None if is_selected else item["id"]
-                st.rerun()
-            st.markdown(f"<div class='codes-text'>CAS {item['cas']}</div>", unsafe_allow_html=True)
-        with c_meta:
-            st.markdown(f"<div class='cat-price-text' style='padding-top:10px;'>{item['category']} · {format_price(item)}</div>", unsafe_allow_html=True)
-        with c_pill:
-            st.markdown(f"<div style='padding-top:8px;'>{pill_html(item['status'])}</div>", unsafe_allow_html=True)
-
-    if is_selected:
-        build_detail_panel(item)
-
-    st.markdown("<div style='margin-bottom:4px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom:4px;'></div>", unsafe_allow_html=True)
