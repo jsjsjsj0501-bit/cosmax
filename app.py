@@ -55,6 +55,13 @@ SURFACE_2 = "#ecede4"
 # --------------------------------------------------------------------------
 st.markdown(f"""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+
+    html, body, .stApp {{
+        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+    }}
     .stApp {{
         background-color: #f5f4ef;
     }}
@@ -195,6 +202,20 @@ st.markdown(f"""
     }}
     .legend-item {{ font-size: 0.85rem; color: #4b6058; margin-bottom: 4px; }}
     .dot {{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }}
+
+    /* 모바일에서도 최소 가독 크기를 보장 */
+    @media (max-width: 640px) {{
+        .app-header h1 {{ font-size: 1.6rem; }}
+        .app-header p.sub {{ font-size: 0.95rem; }}
+        .name-text {{ font-size: 1.02rem; }}
+        .codes-text {{ font-size: 0.85rem; }}
+        .cat-price-text {{ font-size: 0.88rem; }}
+        .match-badge {{ font-size: 0.8rem; }}
+        .price-diff {{ font-size: 0.82rem; }}
+        .pill {{ font-size: 0.8rem; }}
+        .sub-diff-box, .sub-diff-box .label {{ font-size: 0.85rem; }}
+        .legend-item {{ font-size: 0.9rem; }}
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -217,6 +238,13 @@ def init_state():
 
 init_state()
 
+# 검색창(text_input, key="search_input")은 이미 아래에서 렌더링된 뒤이므로,
+# 버튼 클릭 핸들러(run_search/reset_search)에서 직접 값을 대입하면
+# StreamlitAPIException이 발생한다. 위젯이 그려지기 전인 매 스크립트 실행 시작
+# 시점에 대기 중인 값을 먼저 반영한다.
+if "_pending_search_input" in st.session_state:
+    st.session_state.search_input = st.session_state.pop("_pending_search_input")
+
 
 def add_to_history(q: str):
     if not q:
@@ -228,16 +256,18 @@ def add_to_history(q: str):
 
 def run_search(q: str):
     st.session_state.query = q
-    st.session_state.search_input = q
     st.session_state.selected_id = None
     add_to_history(q)
+    st.session_state._pending_search_input = q
+    st.rerun()
 
 
 def reset_search():
     st.session_state.query = ""
     st.session_state.category = "전체"
     st.session_state.selected_id = None
-    st.session_state.search_input = ""
+    st.session_state._pending_search_input = ""
+    st.rerun()
 
 
 def matches_query(item, q):
@@ -407,16 +437,16 @@ def build_detail_panel(item):
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
         <div>
           <div style="color:{ACCENT};font-size:0.8rem;font-weight:700;text-transform:uppercase;">{item['category']}</div>
-          <h3 style="margin:2px 0 8px 0;">{item['name']}</h3>
+          <h3 style="margin:2px 0 8px 0;font-size:1.3rem;font-weight:800;">{item['name']}</h3>
         </div>
         <div>{pill_html(item['status'])}</div>
       </div>
       <div style="display:flex;gap:28px;flex-wrap:wrap;border-top:1px solid {BORDER};border-bottom:1px solid {BORDER};padding:12px 0;margin:10px 0;">
-        <div><div style="font-size:0.72rem;color:{MUTED};text-transform:uppercase;">INCI명</div><div style="font-family:monospace;">{item['inci']}</div></div>
-        <div><div style="font-size:0.72rem;color:{MUTED};text-transform:uppercase;">CAS No.</div><div style="font-family:monospace;">{item['cas']}</div></div>
-        <div><div style="font-size:0.72rem;color:{MUTED};text-transform:uppercase;">참고 단가</div><div style="font-family:monospace;">{format_price(item)}</div></div>
+        <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">INCI명</div><div style="font-family:monospace;">{item['inci']}</div></div>
+        <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">CAS No.</div><div style="font-family:monospace;">{item['cas']}</div></div>
+        <div><div style="font-size:0.76rem;color:{MUTED};text-transform:uppercase;">참고 단가</div><div style="font-family:monospace;">{format_price(item)}</div></div>
       </div>
-      <p style="color:{MUTED};font-size:0.92rem;margin:0;">{item['desc']}</p>
+      <p style="color:{MUTED};font-size:0.95rem;line-height:1.6;margin:0;">{item['desc']}</p>
     </div>
     """, unsafe_allow_html=True)
 
