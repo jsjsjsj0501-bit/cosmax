@@ -271,11 +271,17 @@ st.markdown(f"""
 # --------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("##### 기능 카테고리")
-    for cat in CATEGORIES:
-        btn_type = "primary" if st.session_state.category == cat else "secondary"
-        if st.button(cat, key=f"cat_{cat}", use_container_width=True, type=btn_type):
-            st.session_state.category = cat
-            st.session_state.selected_id = None
+    radio_key = f"category_radio_{st.session_state.category}"
+    selected_cat = st.radio(
+        "기능 카테고리",
+        CATEGORIES,
+        index=CATEGORIES.index(st.session_state.category),
+        key=radio_key,
+        label_visibility="collapsed",
+    )
+    if selected_cat != st.session_state.category:
+        st.session_state.category = selected_cat
+        st.session_state.selected_id = None
 
     st.markdown("---")
     st.markdown("##### 공급 상태")
